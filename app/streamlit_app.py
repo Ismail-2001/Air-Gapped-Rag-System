@@ -1,235 +1,246 @@
 """
-Air-Gapped RAG Terminal UI
-Streamlit-based dashboard for secure, offline document intelligence.
+Interfaz de usuario de Fortaleza Digital - Terminal RAG Táctico en Español.
+Estética monocromo, 100% aire-gapped.
 """
 
 import streamlit as st
 import time
-import os
-from rag_engine import RAGEngine
-from pdf_processor import process_uploaded_file
+import logging
+from typing import List, Dict, Any
 from config import config
+import locales
+from pdf_processor import process_source
+from rag_engine import RAGEngine
 
-# Page Config
+# Configuración de página con estética terminal
 st.set_page_config(
-    page_title="SECURE RAG TERMINAL",
-    page_icon="🛡️",
+    page_title=locales.TITLE,
+    page_icon="▸",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling (Terminal Aesthetic)
+# Estilos CSS personalizados para estética militar táctica
 st.markdown("""
 <style>
-    /* Main Font Override */
-    @import url('https://fonts.googleapis.com/css2?family=Fira+Code&family=JetBrains+Mono&display=swap');
-    
-    * {
-        font-family: 'Fira Code', 'JetBrains Mono', 'Courier New', monospace !important;
-    }
+/* Font-family fallback para entorno offline */
+* { font-family: "Courier New", Courier, monospace !important; }
 
-    /* Overall Background */
-    .stApp {
-        background-color: #0a0a0a;
-        color: #c0c0c0;
-    }
+/* Ocultar elementos de Streamlit branding */
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+header { visibility: hidden; }
+.stDeployButton { display: none; }
 
-    /* Sidebar Background */
-    section[data-testid="stSidebar"] {
-        background-color: #111111;
-        border-right: 1px solid #1a1a1a;
-    }
+/* Fondo negro puro */
+.stApp { background-color: #000000; }
+[data-testid="stSidebar"] { 
+    background-color: #050505; 
+    border-right: 1px solid #00FF00; 
+}
 
-    /* Green Monospace Headers */
-    h1, h2, h3 {
-        color: #00ff41 !important;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-    }
+/* Texto verde fosforito */
+.stMarkdown, .stText, p, span, label, h1, h2, h3 { 
+    color: #00FF00 !important; 
+}
 
-    /* Flat Green Buttons */
-    .stButton > button {
-        background-color: transparent !important;
-        color: #00ff41 !important;
-        border: 1px solid #00ff41 !important;
-        border-radius: 0px !important;
-        text-transform: uppercase !important;
-        padding: 0.5rem 2rem !important;
-        transition: all 0.3s ease;
-    }
-    
-    .stButton > button:hover {
-        background-color: rgba(0, 255, 65, 0.1) !important;
-        box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
-    }
+/* Botones terminales */
+.stButton > button {
+    background-color: transparent !important;
+    color: #00FF00 !important;
+    border: 1px solid #00FF00 !important;
+    border-radius: 0 !important;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 2px;
+    width: 100%;
+}
+.stButton > button:hover {
+    background-color: #00FF00 !important;
+    color: #000000 !important;
+}
 
-    /* Response Container Style */
-    .response-card {
-        padding: 1.5rem;
-        background-color: #111111;
-        border: 1px solid #1a1a1a;
-        border-left: 4px solid #00ff41;
-        margin-bottom: 1rem;
-    }
+/* Campos de entrada */
+.stTextInput input, .stTextArea textarea {
+    background-color: #0a0a0a !important;
+    color: #00FF00 !important;
+    border: 1px solid #1a3a1a !important;
+    border-radius: 0 !important;
+}
 
-    /* Blinking Cursor for Terminal Inputs */
-    .stTextInput input::after {
-        content: '_';
-        animation: blink 1s step-end infinite;
-    }
-    
-    @keyframes blink {
-        from, to { color: transparent; }
-        50% { color: #00ff41; }
-    }
+/* Expander con estilo militar */
+.streamlit-expanderHeader { 
+    color: #00FF00 !important; 
+    background-color: #050505 !important;
+    border: 1px solid #1a3a1a !important;
+    border-radius: 0 !important;
+}
 
-    /* Scanner Animation for Header */
-    .scanner-line {
-        width: 100%;
-        height: 1px;
-        background: linear-gradient(to right, transparent, #00ff41, transparent);
-        position: absolute;
-        top: 0;
-        left: 0;
-        animation: scanner 5s infinite;
-        opacity: 0.3;
-    }
+/* Respuesta destacada */
+.response-box {
+    background-color: #050505;
+    border-left: 3px solid #00FF00;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border-bottom: 1px solid #1a3a1a;
+}
 
-    @keyframes scanner {
-        0% { top: 0; }
-        100% { top: 100%; }
-    }
-    
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-        width: 5px;
-    }
-    ::-webkit-scrollbar-track {
-        background: #0a0a0a;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: #1a1a1a;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #00ff41;
-    }
+.cursor-blink::after {
+    content: "█";
+    animation: blink 1s step-end infinite;
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
 
-    /* Status Indicators */
-    .status-online { color: #00ff41; }
-    .status-offline { color: #ff4444; }
-    .status-warning { color: #ffaa00; }
+/* Alertas */
+.error-text { color: #FF0000 !important; font-weight: bold; }
+.warning-text { color: #FFAA00 !important; }
+
+/* Efecto scanline en cabecera */
+.scanline-header {
+    border-bottom: 2px solid #00FF00;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+}
+.scanline-header::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(0deg, rgba(0, 255, 0, 0.05) 50%, transparent 50%);
+    background-size: 100% 4px;
+    pointer-events: none;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# Application Logic
-def initialize_engine():
-    """Load the RAG Engine into session state."""
-    if "rag_engine" not in st.session_state:
-        st.session_state.rag_engine = RAGEngine()
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
-    if "ingested_files" not in st.session_state:
-        st.session_state.ingested_files = []
+# ── Estado de Sesión ──
+if 'rag_engine' not in st.session_state:
+    try:
+        with st.spinner(locales.PROCESSING_INGEST):
+            st.session_state.rag_engine = RAGEngine()
+    except Exception as e:
+        st.error(locales.ERR_OLLAMA_UNAVAILABLE)
 
-# Header
-st.markdown("<div class='scanner-line'></div>", unsafe_allow_html=True)
-st.title("▸ SECURE RAG TERMINAL")
-st.caption("Air-Gapped Document Intelligence System (Local GPU/CPU Execution)")
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
 
-initialize_engine()
-engine = st.session_state.rag_engine
+if 'ingested_docs' not in st.session_state:
+    st.session_state.ingested_docs = []
 
-# System Health Check
-health = engine.health_check()
-stats = engine.get_stats()
+# ── Barra Lateral ──
+st.sidebar.markdown(f"### {locales.SIDEBAR_HEADER}")
+uploaded_files = st.sidebar.file_uploader(
+    locales.SIDEBAR_UPLOAD,
+    type=["pdf"],
+    accept_multiple_files=True,
+    help=locales.SIDEBAR_UPLOAD_HELP
+)
 
-# Status Bar
-hdr_cols = st.columns([1, 1, 1, 1])
-hdr_cols[0].markdown(f"**STATUS:** {'● ONLINE' if health['status'] == 'online' else '● OFFLINE'}", help="Connectivity check to local Ollama API")
-hdr_cols[1].markdown(f"**DOCS:** {stats['count']}", help="Total number of text chunks currently indexed")
-hdr_cols[2].markdown(f"**MODEL:** `{config.LLM_MODEL.split(':')[0]}`")
-hdr_cols[3].markdown(f"**EMBED:** `{config.EMBEDDING_MODEL.split('-')[0]}`")
-
-st.markdown("---")
-
-# Sidebar
-with st.sidebar:
-    st.header("DOCUMENT INGEST")
-    
-    uploaded_files = st.file_uploader(
-        "UPLOAD PDF DOCUMENTS",
-        type="pdf",
-        accept_multiple_files=True,
-    )
-    
-    if st.button("EXECUTE INGESTION") and uploaded_files:
-        with st.status("PROCESSING...", expanded=True) as status_box:
-            for uploaded_file in uploaded_files:
-                st.write(f"▸ Indexing `{uploaded_file.name}`...")
-                chunks = process_uploaded_file(uploaded_file)
-                count = engine.ingest(chunks)
-                st.session_state.ingested_files.append({
+if st.sidebar.button(locales.BTN_INGEST) and uploaded_files:
+    for uploaded_file in uploaded_files:
+        with st.spinner(f"{locales.PROCESSING_INGEST}: {uploaded_file.name}"):
+            try:
+                result = process_source(uploaded_file)
+                st.session_state.rag_engine.ingest_documents(result["chunks"])
+                st.session_state.ingested_docs.append({
                     "name": uploaded_file.name,
-                    "pages": "PDF", # In progress would be better with real counts
-                    "chunks": count,
-                    "time": time.strftime("%H:%M:%S")
+                    "pages": result["page_count"],
+                    "chunks": len(result["chunks"]),
+                    "alerts": result["alerts"]
                 })
-            status_box.update(label="INGESTION COMPLETED", state="complete", expanded=False)
-            st.rerun()
+                st.sidebar.success(f"✓ {uploaded_file.name}")
+            except Exception as e:
+                st.sidebar.error(f"{locales.ERR_INGEST_FAIL}: {uploaded_file.name}")
 
-    st.markdown("---")
-    st.header("INGESTED INDEX")
-    if not st.session_state.ingested_files:
-        st.caption("No documents in index")
-    else:
-        for file in st.session_state.ingested_files:
-            st.markdown(f"• `{file['name']}` ({file['chunks']} chunks)")
-            
-    if st.button("CLEAR LOCAL DATABASE"):
-        engine.clear()
-        st.session_state.ingested_files = []
+st.sidebar.divider()
+
+if st.sidebar.button(locales.BTN_CLEAR):
+    if st.sidebar.checkbox(locales.CLEAR_CONFIRM):
+        st.session_state.rag_engine.purge_database()
+        st.session_state.ingested_docs = []
         st.session_state.chat_history = []
         st.rerun()
-    
-    st.markdown("---")
-    st.header("SYSTEM SPECS")
-    st.code(f"""
-    LLM: {config.LLM_MODEL}
-    EMBED: {config.EMBEDDING_MODEL}
-    CHUNKS: {config.CHUNK_SIZE}/{config.CHUNK_OVERLAP}
-    TOP_K: {config.TOP_K_RESULTS}
-    TIMEOUT: {config.REQUEST_TIMEOUT}s
-    """, language="markdown")
 
-# Main Interface
-query = st.text_input("query▸", placeholder="Enter your query here...", help="Type natural language questions about your uploaded documents.")
+st.sidebar.markdown(f"### {locales.SIDEBAR_INGESTED}")
+if not st.session_state.ingested_docs:
+    st.sidebar.info(locales.SIDEBAR_NO_DOCS)
+else:
+    for doc in st.session_state.ingested_docs:
+        with st.sidebar.expander(f"📄 {doc['name']}"):
+            st.write(f"{locales.INGEST_PAGES}: {doc['pages']}")
+            st.write(f"{locales.INGEST_CHUNKS}: {doc['chunks']}")
+            for alert in doc['alerts']:
+                st.markdown(f"<span class='warning-text'>⚠ {alert}</span>", unsafe_allow_html=True)
 
-if st.button("EXECUTE") and query:
-    with st.spinner("Processing request through local intelligence pipeline..."):
-        result = engine.query(query)
-        st.session_state.chat_history.insert(0, {
-            "query": query,
-            "answer": result["answer"],
-            "sources": result["sources"],
-            "time": result["time"]
-        })
+st.sidebar.divider()
+st.sidebar.markdown(f"### {locales.SIDEBAR_SYSTEM}")
+st.sidebar.text(f"{locales.STATUS_MODEL}: {config.LLM_MODEL}")
+st.sidebar.text(f"{locales.STATUS_EMBEDDINGS}: {config.EMBEDDING_MODEL}")
+st.sidebar.text(f"{locales.STATUS_ONLINE if st.session_state.rag_engine else locales.STATUS_OFFLINE}")
 
-# Display Chat History
-for chat in st.session_state.chat_history:
-    with st.container():
-        st.markdown(f"**Q: {chat['query']}**")
-        st.markdown(f"""
-        <div class="response-card">
-            {chat['answer']}
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.expander("▸ SOURCE CITATIONS"):
-            if not chat["sources"]:
-                st.write("No source documents referenced.")
-            for i, src in enumerate(chat["sources"]):
-                st.markdown(f"[{i+1}] `{src['source']}` (Page {src['page']})")
-                st.caption(f"Context: ...{src['content']}...")
+
+# ── Área Principal ──
+st.markdown(f"<div class='scanline-header'><h1>{locales.TITLE}</h1><p>{locales.SUBTITLE}</p></div>", unsafe_allow_html=True)
+st.markdown(f"*{locales.SUBTITLE_DETAIL}*")
+
+query = st.text_input(locales.QUERY_LABEL, placeholder=locales.QUERY_PLACEHOLDER)
+
+col1, col2, _ = st.columns([1, 1, 2])
+with col1:
+    execute_btn = st.button(locales.BTN_EXECUTE)
+
+if execute_btn:
+    if not query:
+        st.error(locales.ERR_QUERY_EMPTY)
+    elif not st.session_state.ingested_docs:
+        st.warning(locales.NO_DOCS_WARNING)
+    else:
+        start_time = time.time()
+        with st.spinner(locales.PROCESSING_QUERY):
+            try:
+                response = st.session_state.rag_engine.query(query)
+                end_time = time.time()
                 
-        st.caption(f"Response Latency: {chat['time']} | Secure Local Cache Execution")
-        st.markdown("<br>", unsafe_allow_html=True)
+                # Almacenar en historial
+                st.session_state.chat_history.insert(0, {
+                    "question": query,
+                    "answer": response["result"],
+                    "sources": response["source_documents"],
+                    "time": round(end_time - start_time, 2)
+                })
+            except Exception as e:
+                st.error(f"{locales.ERR_OLLAMA_UNAVAILABLE}")
+
+# ── Mostrar Resultados ──
+if st.session_state.chat_history:
+    latest = st.session_state.chat_history[0]
+    
+    st.markdown(f"### {locales.RESPONSE_HEADER}")
+    st.markdown(f"<div class='response-box'>{latest['answer']}</div>", unsafe_allow_html=True)
+    
+    st.markdown(f"*{locales.RESPONSE_TIME}: {latest['time']}s*")
+    
+    with st.expander(locales.SOURCES_HEADER):
+        for doc in latest["sources"]:
+            st.markdown(f"**[{locales.SOURCE_FILE}: {doc.metadata['source']} | {locales.SOURCE_PAGE}: {doc.metadata['page']}]**")
+            st.text(doc.page_content)
+            st.divider()
+
+st.divider()
+
+# ── Historial ──
+st.markdown(f"### {locales.HISTORY_HEADER}")
+if not st.session_state.chat_history:
+    st.info(locales.HISTORY_EMPTY)
+else:
+    for i, entry in enumerate(st.session_state.chat_history[1:]): # Mostrar anteriores al actual
+        with st.expander(f"Q: {entry['question'][:50]}..."):
+            st.write(f"**{locales.HISTORY_Q}:** {entry['question']}")
+            st.write(f"**{locales.HISTORY_A}:** {entry['answer']}")

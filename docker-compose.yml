@@ -5,45 +5,56 @@ services:
     build:
       context: ./ollama
       dockerfile: Dockerfile
-    container_name: airgap-ollama
-    ports:
-      - "11434:11434"
+    container_name: fortaleza-ollama
     volumes:
       - ./models:/root/.ollama
-    networks:
-      - airgap-net
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - NVIDIA_VISIBLE_DEVICES=all
+      - LLM_MODEL=${LLM_MODEL}
     deploy:
       resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
         limits:
           memory: 8G
+    networks:
+      - airgap-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
       interval: 10s
       timeout: 5s
       retries: 30
-      start_period: 30s
+      start_period: 45s
     restart: unless-stopped
 
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
-    container_name: airgap-app
+    container_name: fortaleza-app
     ports:
       - "8501:8501"
     volumes:
       - ./documents:/app/documents
+      - ./chroma_data:/app/chroma_data
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
-      - LLM_MODEL=${LLM_MODEL:-llama3:8b-instruct-q4_K_M}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
-      - CHUNK_SIZE=${CHUNK_SIZE:-1000}
-      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-200}
-      - TOP_K_RESULTS=${TOP_K_RESULTS:-4}
-      - ANONYMIZED_TELEMETRY=false
-      - DO_NOT_TRACK=1
-      - HF_HUB_OFFLINE=1
-      - TRANSFORMERS_OFFLINE=1
+      - LLM_MODEL=${LLM_MODEL}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+      - EMBEDDING_DEVICE=${EMBEDDING_DEVICE}
+      - CHUNK_SIZE=${CHUNK_SIZE}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP}
+      - TOP_K_RESULTS=${TOP_K_RESULTS}
+      - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY}
+      - DO_NOT_TRACK=${DO_NOT_TRACK}
+      - HF_HUB_OFFLINE=${HF_HUB_OFFLINE}
+      - TRANSFORMERS_OFFLINE=${TRANSFORMERS_OFFLINE}
+      - CHROMADB_TELEMETRY=${CHROMADB_TELEMETRY}
+      - CHROMA_PERSIST_DIR=/app/chroma_data
     depends_on:
       ollama:
         condition: service_healthy
@@ -54,4 +65,4 @@ services:
 networks:
   airgap-net:
     driver: bridge
-    internal: true    # CRITICAL: blocks ALL external network access
+    internal: true

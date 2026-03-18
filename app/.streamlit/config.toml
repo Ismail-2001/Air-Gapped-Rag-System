@@ -1,14 +1,15 @@
 [theme]
-primaryColor = "#00ff41"
-backgroundColor = "#0a0a0a"
-secondaryBackgroundColor = "#111111"
-textColor = "#c0c0c0"
+primaryColor = "#00FF00"
+backgroundColor = "#000000"
+secondaryBackgroundColor = "#0a0a0a"
+textColor = "#00FF00"
 font = "monospace"
 
 [server]
 maxUploadSize = 200
 enableCORS = false
 enableXsrfProtection = false
+headless = true
 
 [browser]
 gatherUsageStats = false

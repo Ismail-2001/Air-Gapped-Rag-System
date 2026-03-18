@@ -1,114 +1,95 @@
 """
-PDF Processing Module
-Handles text extraction and chunking of PDF documents for the RAG system.
+Procesador de documentos PDF para el sistema Fortaleza Digital.
+Usa pdfplumber (licencia MIT) para extracción de texto.
+Trata todo contenido como entrada no confiable.
 """
 
 import os
 import io
-import fitz  # PyMuPDF
-from typing import List, Dict, Any, Union
+import logging
+from typing import List, Dict, Any, Optional
+import pdfplumber
+from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
+from prompt_shield import sanitize_text
 from config import config
 
-def extract_text_from_pdf(file_source: Union[str, bytes]) -> List[Dict[str, Any]]:
+logger = logging.getLogger(__name__)
+
+def extract_text_from_pdf(file_source: Any) -> Dict[str, Any]:
     """
-    Extracts text from each page of a PDF file.
+    Extrae texto de un PDF usando pdfplumber.
     
     Args:
-        file_source: Either a path to the file or the bytes content.
+        file_source: Ruta al archivo o bytes del archivo (Streamlit UploadedFile).
         
     Returns:
-        A list of dictionaries containing 'text' and 'metadata' for each page.
+        Dict con documentos, recuento de páginas y alertas.
     """
-    pages = []
+    documents = []
+    alerts = []
+    page_count = 0
     
     try:
-        if isinstance(file_source, bytes):
-            doc = fitz.open(stream=file_source, filetype="pdf")
+        # Handle both file paths and uploaded file objects
+        if isinstance(file_source, (str, bytes, io.BytesIO)):
+            pdf_context = pdfplumber.open(file_source)
         else:
-            doc = fitz.open(file_source)
+            pdf_context = pdfplumber.open(io.BytesIO(file_source.read()))
             
-        for page_num in range(len(doc)):
-            page = doc.load_page(page_num)
-            text = page.get_text()
+        with pdf_context as pdf:
+            page_count = len(pdf.pages)
+            source_name = getattr(file_source, 'name', 'unknown_source')
             
-            if text.strip():
-                pages.append({
-                    "text": text,
-                    "metadata": {
-                        "page": page_num + 1,
-                        "source": os.path.basename(file_source) if isinstance(file_source, str) else "uploaded_file"
+            for i, page in enumerate(pdf.pages):
+                text = page.extract_text()
+                if not text:
+                    continue
+                
+                # Sanitize text
+                sanitized_text, page_alerts = sanitize_text(text)
+                if page_alerts:
+                    alerts.extend([f"Pág {i+1}: {a}" for a in page_alerts])
+                
+                doc = Document(
+                    page_content=sanitized_text,
+                    metadata={
+                        "source": source_name,
+                        "page": i + 1
                     }
-                })
-        
-        doc.close()
+                )
+                documents.append(doc)
+                
     except Exception as e:
-        print(f"Error processing PDF: {e}")
+        logger.error(f"Error procesando PDF: {str(e)}")
+        raise e
         
-    return pages
+    return {
+        "documents": documents,
+        "page_count": page_count,
+        "alerts": alerts
+    }
 
-def chunk_documents(pages: List[Dict[str, Any]]) -> List[Document]:
+def chunk_documents(documents: List[Document]) -> List[Document]:
     """
-    Splits page text into manageable chunks.
-    
-    Args:
-        pages: List of dictionaries containing page text and metadata.
-        
-    Returns:
-        A list of LangChain Document objects.
+    Divide los documentos en fragmentos manejables para la base de datos vectorial.
     """
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=config.CHUNK_SIZE,
         chunk_overlap=config.CHUNK_OVERLAP,
-        length_function=len,
+        separators=["\n\n", "\n", ". ", " ", ""]
     )
-    
-    langchain_docs = []
-    for page in pages:
-        chunks = text_splitter.split_text(page["text"])
-        for i, chunk in enumerate(chunks):
-            metadata = page["metadata"].copy()
-            metadata["chunk_index"] = i
-            langchain_docs.append(Document(page_content=chunk, metadata=metadata))
-            
-    return langchain_docs
+    return text_splitter.split_documents(documents)
 
-def process_uploaded_file(uploaded_file) -> List[Document]:
+def process_source(file_source: Any) -> Dict[str, Any]:
     """
-    Handles PDF uploaded through Streamlit.
+    Procesa un archivo fuente completo: extracción + división.
+    """
+    extraction = extract_text_from_pdf(file_source)
+    chunks = chunk_documents(extraction["documents"])
     
-    Args:
-        uploaded_file: The Streamlit UploadedFile object.
-        
-    Returns:
-        A list of processed Document chunks.
-    """
-    file_bytes = uploaded_file.read()
-    pages = extract_text_from_pdf(file_bytes)
-    # Correct filename for metadata
-    for page in pages:
-        page["metadata"]["source"] = uploaded_file.name
-    return chunk_documents(pages)
-
-def process_directory(dir_path: str) -> List[Document]:
-    """
-    Processes all PDF files in a given directory.
-    
-    Args:
-        dir_path: Path to the directory containing PDFs.
-        
-    Returns:
-        A combined list of Document chunks from all PDFs.
-    """
-    all_chunks = []
-    if not os.path.exists(dir_path):
-        return all_chunks
-        
-    for filename in os.listdir(dir_path):
-        if filename.lower().endswith(".pdf"):
-            file_path = os.path.join(dir_path, filename)
-            pages = extract_text_from_pdf(file_path)
-            all_chunks.extend(chunk_documents(pages))
-            
-    return all_chunks
+    return {
+        "chunks": chunks,
+        "page_count": extraction["page_count"],
+        "alerts": extraction["alerts"]
+    }

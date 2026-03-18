@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices: []   # Remove GPU reservation
+        limits:
+          memory: 8G
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=    # Empty = no GPU

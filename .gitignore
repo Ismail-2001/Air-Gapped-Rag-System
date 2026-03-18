@@ -1,46 +1,22 @@
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Environment
 .env
 .venv
+env/
 venv/
 ENV/
 env.bak/
 venv.bak/
-
-# Docker containers
-.dockerignore
-
-# Project Specific
-models/
-documents/
+.idea/
+.vscode/
+.streamlit/
+!app/.streamlit/config.toml
 chroma_data/
-!models/.gitkeep
+models/
+documents/*.pdf
 !documents/.gitkeep
-
-# OS
-.DS_Store
-Thumbs.db
+wheels/*.whl
+!wheels/.gitkeep
+fortaleza-ollama.tar.gz
+fortaleza-app.tar.gz

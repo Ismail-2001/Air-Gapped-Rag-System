@@ -1,52 +1,25 @@
-.PHONY: build up down logs test shell ollama-sh clean save load status
+.PHONY: build up down logs test clean-docs shell-app shell-ollama
 
-# Variables
-PROJECT_NAME = airgap-rag
-DOCKER_COMPOSE = docker compose
+build:
+	docker compose build
 
-build:      ## Build all containers
-	$(DOCKER_COMPOSE) build
+up:
+	docker compose up -d
 
-up:         ## Start the stack in background
-	$(DOCKER_COMPOSE) up -d
+down:
+	docker compose down
 
-down:       ## Stop the stack
-	$(DOCKER_COMPOSE) down
+logs:
+	docker compose logs -f
 
-logs:       ## Tail all logs
-	$(DOCKER_COMPOSE) logs -f
+test:
+	docker compose run --rm tests pytest
 
-test:       ## Run air-gap verification tests
-	$(DOCKER_COMPOSE) exec app python tests/test_airgap.py
-	$(DOCKER_COMPOSE) exec app python tests/test_rag.py
+clean-docs:
+	rm -rf documents/*.pdf
 
-shell:      ## Shell into app container
-	$(DOCKER_COMPOSE) exec app bash
+shell-app:
+	docker exec -it fortaleza-app /bin/bash
 
-ollama-sh:  ## Shell into ollama container
-	$(DOCKER_COMPOSE) exec ollama bash
-
-clean:      ## Remove all containers, volumes, images, and data
-	$(DOCKER_COMPOSE) down -v --rmi all --remove-orphans
-	rm -rf app/chroma_data/
-	rm -rf models/*
-	rm -rf documents/*
-
-save:       ## Export Docker images to tar for offline transfer
-	mkdir -p ./exports
-	docker save airgap-app:latest > ./exports/airgap-app.tar
-	docker save airgap-ollama:latest > ./exports/airgap-ollama.tar
-	@echo "Images exported to ./exports directory."
-
-load:       ## Import Docker images from tar files
-	docker load < ./exports/airgap-app.tar
-	docker load < ./exports/airgap-ollama.tar
-
-status:     ## Show container health and stats
-	$(DOCKER_COMPOSE) ps
-	docker stats --no-stream
-
-help:       ## Show this help message
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
-
-.DEFAULT_GOAL := help
+shell-ollama:
+	docker exec -it fortaleza-ollama /bin/bash
