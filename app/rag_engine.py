@@ -11,6 +11,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_community.llms import Ollama
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
+from prompt_shield import sanitize_text, build_safe_context
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -44,20 +45,28 @@ class RAGEngine:
             # timeout=config.REQUEST_TIMEOUT, # Note: timeout depends on langchain version, using keyword instead
         )
 
-        # ── RAG Chain with custom Spanish prompt ──
-        self.qa_chain = RetrievalQA.from_chain_type(
-            llm=self.llm,
-            chain_type="stuff",
-            retriever=self.vectorstore.as_retriever(
-                search_kwargs={"k": config.TOP_K_RESULTS}
-            ),
-            return_source_documents=True,
-            chain_type_kwargs={
-                "prompt": self._build_spanish_prompt()
-            }
+        # ── Modern RAG Pipeline (LCEL) ──
+        # Usamos LCEL para mayor control y para integrar el Prompt Shielding
+        from langchain_core.runnables import RunnablePassthrough
+        from langchain_core.output_parsers import StrOutputParser
+
+        # Función para formatear documentos con delimitadores de seguridad
+        def format_docs(docs):
+            texts = [doc.page_content for doc in docs]
+            return build_safe_context(texts)
+
+        self.retriever = self.vectorstore.as_retriever(
+            search_kwargs={"k": config.TOP_K_RESULTS}
+        )
+
+        self.rag_chain = (
+            {"context": self.retriever | format_docs, "question": RunnablePassthrough()}
+            | self._build_spanish_prompt()
+            | self.llm
+            | StrOutputParser()
         )
         
-        logger.info("[FORTALEZA] Motor RAG listo.")
+        logger.info("[FORTALEZA] Motor RAG LCEL operativo.")
 
     def _build_spanish_prompt(self):
         """Construye la plantilla de prompt RAG en español formal."""
@@ -91,7 +100,16 @@ RESPUESTA DEL ANALISTA:"""
     def query(self, question: str) -> Dict[str, Any]:
         """Ejecuta una consulta contra el motor RAG."""
         try:
-            return self.qa_chain.invoke({"query": question})
+            # Recuperar documentos para enviarlos a la UI
+            docs = self.retriever.get_relevant_documents(question)
+            
+            # Ejecutar la cadena con LCEL
+            result = self.rag_chain.invoke(question)
+            
+            return {
+                "result": result,
+                "source_documents": docs
+            }
         except Exception as e:
             logger.error(f"Error en consulta RAG: {str(e)}")
             raise e

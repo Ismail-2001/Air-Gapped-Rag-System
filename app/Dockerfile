@@ -26,16 +26,25 @@ WORKDIR /app
 # Copy pre-downloaded wheels from builder
 COPY --from=builder /wheels /wheels
 
+# Environment variables for absolute offline operation
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    HF_HUB_OFFLINE=1 \
+    HF_DATASETS_OFFLINE=1
+
 # Install from local wheels ONLY — pip CANNOT reach PyPI
 COPY requirements.txt .
 RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt && \
     echo "[FORTALEZA] Instalación offline completada."
 
 # Pre-download BGE-M3 embedding model into image
-# This caches the model inside the Docker layer for offline use
-RUN python -c "\
+# We'll use HuggingFaceHub to download explicitly to cache folder
+ENV SENTENCE_TRANSFORMERS_HOME=/app/models
+RUN mkdir -p /app/models && \
+    python -c "\
 from sentence_transformers import SentenceTransformer; \
-model = SentenceTransformer('BAAI/bge-m3'); \
+model = SentenceTransformer('BAAI/bge-m3', cache_folder='/app/models'); \
 dim = model.get_sentence_embedding_dimension(); \
 print(f'[FORTALEZA] Modelo BGE-M3 cargado: {dim}d embeddings')"
 
@@ -48,6 +57,7 @@ import langchain_huggingface; \
 import chromadb; \
 import sentence_transformers; \
 import pdfplumber; \
+import pydantic; \
 print('[FORTALEZA] Verificación de importaciones: TODAS CORRECTAS')"
 
 # Copy application code
