@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+  ollama:
+    build:
+      context: ./ollama
+      dockerfile: Dockerfile
+    container_name: airgap-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./models:/root/.ollama
+    networks:
+      - airgap-net
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: airgap-app
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./documents:/app/documents
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - LLM_MODEL=${LLM_MODEL:-llama3:8b-instruct-q4_K_M}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      - CHUNK_SIZE=${CHUNK_SIZE:-1000}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-200}
+      - TOP_K_RESULTS=${TOP_K_RESULTS:-4}
+      - ANONYMIZED_TELEMETRY=false
+      - DO_NOT_TRACK=1
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - airgap-net
+    restart: unless-stopped
+
+networks:
+  airgap-net:
+    driver: bridge
+    internal: true    # CRITICAL: blocks ALL external network access
