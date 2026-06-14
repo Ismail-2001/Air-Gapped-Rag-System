@@ -7,11 +7,14 @@ import streamlit as st
 import time
 import logging
 from typing import List, Dict, Any
+from logging_config import setup_logging
 from config import config
 import locales
 from pdf_processor import process_source
 from rag_engine import RAGEngine
 from auth import auth_manager, Role, ClearanceLevel
+
+logger = setup_logging()
 
 # Configuración de página con estética terminal
 st.set_page_config(
