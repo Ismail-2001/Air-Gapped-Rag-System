@@ -101,7 +101,6 @@ RESPUESTA DEL ANALISTA:"""
 
         try:
             self.vectorstore.add_documents(chunks)
-            self.vectorstore.persist()
 
             source = chunks[0].metadata.get("source", "unknown") if chunks else "unknown"
             audit_logger.log(AuditEvent(
