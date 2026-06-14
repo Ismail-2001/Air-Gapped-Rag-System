@@ -13,6 +13,7 @@ from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from prompt_shield import sanitize_text
 from config import config
+from chunking import semantic_chunk_documents
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +72,9 @@ def extract_text_from_pdf(file_source: Any) -> Dict[str, Any]:
     }
 
 def chunk_documents(documents: List[Document]) -> List[Document]:
-    """
-    Divide los documentos en fragmentos manejables para la base de datos vectorial.
-    """
+    """Divide los documentos en fragmentos manejables para la base de datos vectorial."""
+    if config.SEMANTIC_CHUNKING:
+        return semantic_chunk_documents(documents)
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=config.CHUNK_SIZE,
         chunk_overlap=config.CHUNK_OVERLAP,
