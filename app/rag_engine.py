@@ -57,7 +57,11 @@ class RAGEngine:
             return build_safe_context(texts)
 
         self.retriever = self.vectorstore.as_retriever(
-            search_kwargs={"k": config.TOP_K_RESULTS}
+            search_type="similarity",
+            search_kwargs={
+                "k": config.TOP_K_RESULTS,
+                "score_threshold": config.SIMILARITY_THRESHOLD,
+            }
         )
 
         self.rag_chain = (
