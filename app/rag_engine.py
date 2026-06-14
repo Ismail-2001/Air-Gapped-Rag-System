@@ -16,6 +16,7 @@ from prompt_shield import sanitize_text
 from config import config
 from retrieval import HybridRetriever, BM25
 from query_expansion import expand_query, deduplicate_results
+from reranker import CrossEncoderReranker
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,8 @@ class RAGEngine:
             vectorstore=self.vectorstore,
             bm25=BM25(k1=1.5, b=0.75),
         )
+
+        self.reranker = CrossEncoderReranker() if config.ENABLE_RERANKER else None
 
         self.format_docs = self._make_format_docs()
 
@@ -156,6 +159,10 @@ RESPUESTA DEL ANALISTA:"""
                 all_docs.extend(docs)
 
             deduped = deduplicate_results(all_docs)
+
+            if self.reranker is not None:
+                deduped = self.reranker.rerank(question, deduped)
+
             context = self.format_docs(deduped)
             prompt = self._build_spanish_prompt().format(context=context, question=question)
             result = self.llm.invoke(prompt)
@@ -168,8 +175,9 @@ RESPUESTA DEL ANALISTA:"""
                 resource="rag_engine.query",
                 details={
                     "question_truncated": question[:200],
-                    "documents_retrieved": len(docs),
+                    "documents_retrieved": len(deduped),
                     "expanded_queries": len(expanded_queries),
+                    "reranker": config.ENABLE_RERANKER,
                     "response_length": len(result),
                     "model": config.LLM_MODEL,
                 }

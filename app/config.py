@@ -29,6 +29,8 @@ class Config:
     FORTALEZA_ENCRYPTION_KEY: str = os.getenv("FORTALEZA_ENCRYPTION_KEY", "")
     FORTALEZA_RATE_LIMIT: int = int(os.getenv("FORTALEZA_RATE_LIMIT", "30"))
     SEMANTIC_CHUNKING: bool = os.getenv("SEMANTIC_CHUNKING", "true").lower() == "true"
+    CROSS_ENCODER_MODEL: str = os.getenv("CROSS_ENCODER_MODEL", "cross-encoder/ms-marco-TinyBERT-L-2-v2")
+    ENABLE_RERANKER: bool = os.getenv("ENABLE_RERANKER", "true").lower() == "true"
 
 
 config = Config()
