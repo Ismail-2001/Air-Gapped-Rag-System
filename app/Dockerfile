@@ -50,10 +50,13 @@ import streamlit; \
 import langchain; \
 import langchain_community; \
 import langchain_huggingface; \
+import langchain_ollama; \
+import langchain_chroma; \
 import chromadb; \
 import sentence_transformers; \
 import pdfplumber; \
 import pydantic; \
+import cryptography; \
 print('[FORTALEZA] Verificacion de importaciones: TODAS CORRECTAS')"
 
 COPY . .
