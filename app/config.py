@@ -26,6 +26,8 @@ class Config:
     FORTALEZA_SESSION_TTL: int = int(os.getenv("FORTALEZA_SESSION_TTL", "480"))
     FORTALEZA_AUTH_MODE: str = os.getenv("FORTALEZA_AUTH_MODE", "local")
     FORTALEZA_ADMIN_PASSWORD: str = os.getenv("FORTALEZA_ADMIN_PASSWORD", "admin")
+    FORTALEZA_ENCRYPTION_KEY: str = os.getenv("FORTALEZA_ENCRYPTION_KEY", "")
+    FORTALEZA_RATE_LIMIT: int = int(os.getenv("FORTALEZA_RATE_LIMIT", "30"))
 
 
 config = Config()
