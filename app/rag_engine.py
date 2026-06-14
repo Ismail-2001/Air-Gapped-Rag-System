@@ -14,6 +14,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
 from prompt_shield import sanitize_text, build_safe_context
 from config import config
+from retrieval import HybridRetriever, BM25
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +65,9 @@ class RAGEngine:
                 )
             return "\n\n".join(formatted)
 
-        self.retriever = self.vectorstore.as_retriever(
-            search_type="similarity",
-            search_kwargs={
-                "k": config.TOP_K_RESULTS,
-                "score_threshold": config.SIMILARITY_THRESHOLD,
-            }
+        self.retriever = HybridRetriever(
+            vectorstore=self.vectorstore,
+            bm25=BM25(k1=1.5, b=0.75),
         )
 
         self.rag_chain = (
