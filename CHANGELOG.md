@@ -19,12 +19,16 @@
 - **feat(retrieval):** Hybrid retrieval with BM25 + vector search and RRF fusion
 - **feat(retrieval):** Similarity threshold filtering (score_threshold=0.7)
 - **feat(retrieval):** Query expansion with multi-query generation and deduplication
+- **feat(retrieval):** Cross-encoder reranking for precision improvement
 - **feat(citations):** Metadata preservation with source/page tracking in context
 - **feat(chunking):** Semantic sentence-aware document chunking
 - **feat(infra):** nginx TLS 1.3 reverse proxy with HSTS and security headers
 - **feat(infra):** Kubernetes manifests (namespace, config, secrets, PVC, deployments, services, network policy)
+- **feat(infra):** Prometheus metrics endpoint with query/reranker/LLM latency tracking
 - **feat(ops):** Backup and restore scripts with optional encryption
 - **feat(ops):** Self-signed certificate provisioning for development
+- **feat(ops):** Compliance documentation with SOC2, NIST, PCI, ISO, GDPR mappings
+- **feat(ops):** Chaos engineering shell tests (network partition, process kill, disk pressure, corruption, load spike)
 
 ### Fixes
 - **fix(airgap):** Pre-load Ollama model during Docker build to enable offline startup
@@ -50,6 +54,9 @@
 ### Testing
 - Added 17 unit tests for auth module (JWT, RBAC, clearance levels)
 - Added 10 unit tests for audit module (chain integrity, tamper detection)
+- Added 14 integration tests for full pipeline (PDF, auth, rate-limit, audit, crypto, security)
+- Added 5 chaos engineering unit tests (resilience patterns)
+- Added chaos engineering shell test suite (network, process, disk, corruption, load)
 - Created test infrastructure with `conftest.py` and shared fixtures
 
 ## v1.0.0 (Original Release)

@@ -49,7 +49,7 @@
 | 24 | Hybrid search (vector + BM25) | ✅ | `5304791` |
 | 25 | Query expansion | ✅ | `c241766` |
 | 26 | Semantic chunking | ✅ | `003763c` |
-| 27 | Cross-encoder reranking | ⬜ Pending | |
+| 27 | Cross-encoder reranking | ✅ | `43f6b3f` |
 
 ## Phase 4: Defense-Grade Readiness
 
@@ -57,21 +57,19 @@
 |---|---|---|---|
 | 28 | Kubernetes manifests | ✅ | `353ecf8` |
 | 29 | Backup/DR procedures | ✅ | `7268275` |
-| 30 | Compliance documentation | ⬜ Pending | |
-| 31 | Chaos engineering tests | ⬜ Pending | |
+| 30 | Prometheus metrics / OpenTelemetry | ✅ | `3d03102` |
+| 31 | Integration tests (full pipeline) | ✅ | `852f47c` |
+| 32 | Compliance documentation | ✅ | `e3c0068` |
+| 33 | Chaos engineering tests | ✅ | `5a3956b` |
 
-## Commit History (Session 2)
+## Commit History (Session 3)
 
 ```
-7268275 feat: add backup and restore scripts with optional encryption
-c241766 feat: add query expansion module with multi-query retrieval and deduplication
-003763c feat: add semantic chunking module with sentence-aware splitting
-353ecf8 feat: add Kubernetes manifests for air-gapped deployment
-5304791 feat: add hybrid retrieval with BM25 + vector search and RRF fusion
-85d0697 feat: add AES-256-GCM encryption at rest module with PBKDF2 key derivation
-0375fc8 feat: add nginx TLS 1.3 reverse proxy with self-signed cert provisioning
-3c3877c chore: expand Makefile with test, lint, clean, and quality gate targets
-d8cffe6 ci: add security scan workflow with Trivy, Gitleaks, pip-audit, and license check
+5a3956b test: add chaos engineering tests (network, process, disk, corruption, load)
+e3c0068 docs: add compliance documentation with SOC2, NIST, PCI, ISO, GDPR, OWASP mappings
+852f47c test: add integration tests for full pipeline (PDF, auth, rate-limit, audit, crypto, security)
+3d03102 feat: add Prometheus metrics and OpenTelemetry tracing with query/reranker/LLM observability
+43f6b3f feat: add cross-encoder reranking module with configurable model and integration
 ```
 
 ## Commit History (Session 1)
