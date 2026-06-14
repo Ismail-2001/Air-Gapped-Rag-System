@@ -33,32 +33,48 @@
 | 13 | Enhance prompt injection shield | ✅ | `65cbe32` |
 | 14 | Add pre-commit configuration | ✅ | `93f3ace` |
 | 15 | Add pytest + pyproject.toml config | ✅ | `69d8505` |
-| 16 | Add OpenTelemetry instrumentation | ⬜ Pending | |
-| 17 | Add Prometheus metrics | ⬜ Pending | |
-| 18 | Add integration tests | ⬜ Pending | |
+| 16 | Add security scan workflow (Trivy, Gitleaks, pip-audit, license) | ✅ | `d8cffe6` |
+| 17 | Add Makefile with test/lint/clean/quality-gate targets | ✅ | `3c3877c` |
+| 18 | Add OpenTelemetry instrumentation | ⬜ Pending | |
+| 19 | Add Prometheus metrics | ⬜ Pending | |
+| 20 | Add integration tests | ⬜ Pending | |
 
 ## Phase 3: Enterprise Readiness
 
-| # | Task | Status |
-|---|---|---|
-| 19 | RBAC with clearance levels | ✅ Done in auth.py |
-| 20 | Encryption at rest | ⬜ Pending |
-| 21 | TLS 1.3 reverse proxy | ⬜ Pending |
-| 22 | Hybrid search (vector + BM25) | ⬜ Pending |
-| 23 | Cross-encoder reranking | ⬜ Pending |
-| 24 | Query expansion | ⬜ Pending |
-| 25 | Semantic chunking | ⬜ Pending |
+| # | Task | Status | Commit |
+|---|---|---|---|
+| 21 | RBAC with clearance levels | ✅ Done in auth.py | `7520b64` |
+| 22 | Encryption at rest | ✅ | `85d0697` |
+| 23 | TLS 1.3 reverse proxy | ✅ | `0375fc8` |
+| 24 | Hybrid search (vector + BM25) | ✅ | `5304791` |
+| 25 | Query expansion | ✅ | `c241766` |
+| 26 | Semantic chunking | ✅ | `003763c` |
+| 27 | Cross-encoder reranking | ⬜ Pending | |
 
 ## Phase 4: Defense-Grade Readiness
 
-| # | Task | Status |
-|---|---|---|
-| 26 | Kubernetes manifests | ⬜ Pending |
-| 27 | Backup/DR procedures | ⬜ Pending |
-| 28 | Compliance documentation | ⬜ Pending |
-| 29 | Chaos engineering tests | ⬜ Pending |
+| # | Task | Status | Commit |
+|---|---|---|---|
+| 28 | Kubernetes manifests | ✅ | `353ecf8` |
+| 29 | Backup/DR procedures | ✅ | `7268275` |
+| 30 | Compliance documentation | ⬜ Pending | |
+| 31 | Chaos engineering tests | ⬜ Pending | |
 
-## Commit History (Today's Session)
+## Commit History (Session 2)
+
+```
+7268275 feat: add backup and restore scripts with optional encryption
+c241766 feat: add query expansion module with multi-query retrieval and deduplication
+003763c feat: add semantic chunking module with sentence-aware splitting
+353ecf8 feat: add Kubernetes manifests for air-gapped deployment
+5304791 feat: add hybrid retrieval with BM25 + vector search and RRF fusion
+85d0697 feat: add AES-256-GCM encryption at rest module with PBKDF2 key derivation
+0375fc8 feat: add nginx TLS 1.3 reverse proxy with self-signed cert provisioning
+3c3877c chore: expand Makefile with test, lint, clean, and quality gate targets
+d8cffe6 ci: add security scan workflow with Trivy, Gitleaks, pip-audit, and license check
+```
+
+## Commit History (Session 1)
 
 ```
 93f3ace chore: add pre-commit config with ruff, mypy, bandit, and secret detection

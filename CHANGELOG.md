@@ -14,9 +14,21 @@
 - **security:** Input validation module for query injection blocking
 - **security:** Rate limiting middleware for user queries
 - **security:** Enhanced prompt injection shield with 40+ patterns
+- **security:** AES-256-GCM encryption at rest with PBKDF2 key derivation
 - **feat(observability):** Structured JSON logging configuration
+- **feat(retrieval):** Hybrid retrieval with BM25 + vector search and RRF fusion
 - **feat(retrieval):** Similarity threshold filtering (score_threshold=0.7)
+- **feat(retrieval):** Query expansion with multi-query generation and deduplication
 - **feat(citations):** Metadata preservation with source/page tracking in context
+- **feat(chunking):** Semantic sentence-aware document chunking
+- **feat(infra):** nginx TLS 1.3 reverse proxy with HSTS and security headers
+- **feat(infra):** Kubernetes manifests (namespace, config, secrets, PVC, deployments, services, network policy)
+- **feat(ops):** Backup and restore scripts with optional encryption
+- **feat(ops):** Self-signed certificate provisioning for development
+
+### Fixes
+- **fix(airgap):** Pre-load Ollama model during Docker build to enable offline startup
+- **fix:** Pin base images to specific hashes — remove `:latest` tags
 
 ### Fixes
 - **fix(airgap):** Pre-load Ollama model during Docker build to enable offline startup
