@@ -1,0 +1,74 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: fortaleza
+  labels:
+    app.kubernetes.io/name: fortaleza-digital
+    app.kubernetes.io/component: ollama
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:0.5.7@sha256:b8fd8827fc98b93d500b88fee73b28d469dda6d0434dc28b5b7aab4bd5d589ba
+          ports:
+            - containerPort: 11434
+              protocol: TCP
+          env:
+            - name: LLM_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: fortaleza-config
+                  key: LLM_MODEL
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2"
+            limits:
+              memory: "8Gi"
+              cpu: "4"
+          startupProbe:
+            exec:
+              command: ["curl", "-sf", "http://localhost:11434/api/tags"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command: ["curl", "-sf", "http://localhost:11434/api/tags"]
+            periodSeconds: 30
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: ollama-models
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: fortaleza
+  labels:
+    app.kubernetes.io/name: fortaleza-digital
+    app.kubernetes.io/component: ollama
+spec:
+  selector:
+    app: ollama
+  ports:
+    - port: 11434
+      targetPort: 11434
+      protocol: TCP
+      name: http

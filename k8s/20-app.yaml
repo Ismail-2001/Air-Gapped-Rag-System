@@ -1,0 +1,90 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: fortaleza
+  labels:
+    app.kubernetes.io/name: fortaleza-digital
+    app.kubernetes.io/component: app
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+        - name: app
+          image: fortaleza-app:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8501
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: fortaleza-config
+            - secretRef:
+                name: fortaleza-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: audit
+              mountPath: /app/audit_logs
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8501
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8501
+            periodSeconds: 30
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: fortaleza-data
+        - name: audit
+          persistentVolumeClaim:
+            claimName: audit-logs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: fortaleza
+  labels:
+    app.kubernetes.io/name: fortaleza-digital
+    app.kubernetes.io/component: app
+spec:
+  selector:
+    app: app
+  ports:
+    - port: 8501
+      targetPort: 8501
+      protocol: TCP
+      name: http
