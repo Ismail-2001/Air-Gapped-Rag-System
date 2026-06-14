@@ -7,9 +7,8 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain_community.llms import Ollama
-from langchain.chains import RetrievalQA
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaLLM
 from langchain.prompts import PromptTemplate
 from prompt_shield import sanitize_text, build_safe_context
 from config import config
@@ -38,11 +37,14 @@ class RAGEngine:
         )
 
         # ── LLM: Ollama local ──
-        self.llm = Ollama(
+        self.llm = OllamaLLM(
             base_url=config.OLLAMA_BASE_URL,
             model=config.LLM_MODEL,
             temperature=0.2,
-            # timeout=config.REQUEST_TIMEOUT, # Note: timeout depends on langchain version, using keyword instead
+            num_predict=config.MAX_TOKENS,
+            top_k=config.TOP_K,
+            top_p=config.TOP_P,
+            repeat_penalty=1.1,
         )
 
         # ── Modern RAG Pipeline (LCEL) ──
@@ -92,33 +94,100 @@ RESPUESTA DEL ANALISTA:"""
             input_variables=["context", "question"]
         )
 
-    def ingest_documents(self, chunks: List[Any]):
+    def ingest_documents(self, chunks: List[Any], user: str = "anonymous",
+                         session_id: str = "unknown", ip: str = "0.0.0.0"):
         """Añade fragmentos de documentos a la base de datos vectorial."""
-        self.vectorstore.add_documents(chunks)
-        self.vectorstore.persist()
+        from audit import audit_logger, AuditEvent, AuditEventType
 
-    def query(self, question: str) -> Dict[str, Any]:
-        """Ejecuta una consulta contra el motor RAG."""
         try:
-            # Recuperar documentos para enviarlos a la UI
+            self.vectorstore.add_documents(chunks)
+            self.vectorstore.persist()
+
+            source = chunks[0].metadata.get("source", "unknown") if chunks else "unknown"
+            audit_logger.log(AuditEvent(
+                event_type=AuditEventType.DOCUMENT_INGESTED,
+                user_id=user,
+                session_id=session_id,
+                ip_address=ip,
+                resource="rag_engine.ingest",
+                details={
+                    "source": source,
+                    "chunk_count": len(chunks),
+                    "model": config.EMBEDDING_MODEL,
+                }
+            ))
+        except Exception as e:
+            from audit import AuditEventType
+            audit_logger.log(AuditEvent(
+                event_type=AuditEventType.DOCUMENT_INGEST_FAILED,
+                user_id=user,
+                session_id=session_id,
+                ip_address=ip,
+                resource="rag_engine.ingest",
+                details={"error": str(e)[:500]}
+            ))
+            raise
+
+    def query(self, question: str, user: str = "anonymous",
+              session_id: str = "unknown", ip: str = "0.0.0.0") -> Dict[str, Any]:
+        """Ejecuta una consulta contra el motor RAG."""
+        from audit import audit_logger, AuditEvent, AuditEventType
+
+        try:
             docs = self.retriever.get_relevant_documents(question)
-            
-            # Ejecutar la cadena con LCEL
             result = self.rag_chain.invoke(question)
-            
+
+            audit_logger.log(AuditEvent(
+                event_type=AuditEventType.QUERY_EXECUTED,
+                user_id=user,
+                session_id=session_id,
+                ip_address=ip,
+                resource="rag_engine.query",
+                details={
+                    "question_truncated": question[:200],
+                    "documents_retrieved": len(docs),
+                    "response_length": len(result),
+                    "model": config.LLM_MODEL,
+                }
+            ))
+
             return {
                 "result": result,
                 "source_documents": docs
             }
         except Exception as e:
+            audit_logger.log(AuditEvent(
+                event_type=AuditEventType.QUERY_FAILED,
+                user_id=user,
+                session_id=session_id,
+                ip_address=ip,
+                resource="rag_engine.query",
+                details={"error": str(e)[:500]}
+            ))
             logger.error(f"Error en consulta RAG: {str(e)}")
             raise e
 
-    def purge_database(self):
+    def purge_database(self, user: str = "anonymous",
+                       session_id: str = "unknown", ip: str = "0.0.0.0"):
         """Borra todos los documentos de la base de datos vectorial."""
-        self.vectorstore.delete_collection()
+        from audit import audit_logger, AuditEvent, AuditEventType
+
+        try:
+            self.vectorstore.delete_collection()
+        except Exception as e:
+            logger.error(f"Error purging collection: {e}")
+
         self.vectorstore = Chroma(
             collection_name="fortaleza_docs",
             embedding_function=self.embeddings,
             persist_directory=config.CHROMA_PERSIST_DIR
         )
+
+        audit_logger.log(AuditEvent(
+            event_type=AuditEventType.DATABASE_PURGED,
+            user_id=user,
+            session_id=session_id,
+            ip_address=ip,
+            resource="rag_engine.purge",
+            details={}
+        ))
