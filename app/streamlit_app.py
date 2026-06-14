@@ -13,6 +13,7 @@ import locales
 from pdf_processor import process_source
 from rag_engine import RAGEngine
 from auth import auth_manager, Role, ClearanceLevel
+from input_validator import validate_query
 
 logger = setup_logging()
 
@@ -274,6 +275,11 @@ if execute_btn:
     elif not st.session_state.ingested_docs:
         st.warning(locales.NO_DOCS_WARNING)
     else:
+        is_valid, error_msg = validate_query(query)
+        if not is_valid:
+            st.error(error_msg)
+            st.stop()
+
         start_time = time.time()
         with st.spinner(locales.PROCESSING_QUERY):
             try:
