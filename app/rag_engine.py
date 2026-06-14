@@ -9,6 +9,8 @@ from typing import List, Dict, Any, Optional
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaLLM
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
 from prompt_shield import sanitize_text, build_safe_context
 from config import config
@@ -48,9 +50,6 @@ class RAGEngine:
         )
 
         # ── Modern RAG Pipeline (LCEL) ──
-        # Usamos LCEL para mayor control y para integrar el Prompt Shielding
-        from langchain_core.runnables import RunnablePassthrough
-        from langchain_core.output_parsers import StrOutputParser
 
         # Función para formatear documentos con delimitadores de seguridad
         def format_docs(docs):
