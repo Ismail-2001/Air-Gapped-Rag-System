@@ -1,4 +1,4 @@
-# 🛡️ FORTALEZA DIGITAL (v1.1.0)
+# 🛡️ FORTALEZA DIGITAL 
 ### Sovereign Air-Gapped RAG Intelligence System
 
 **Fortaleza Digital** is an SRE-grade, high-security Retrieval-Augmented Generation (RAG) platform purpose-built for military or corporate environments where data cannot leave the room. It leverages local Large Language Models (LLMs) and Vector Databases to provide intelligent document insights without a single byte of internet connectivity.
