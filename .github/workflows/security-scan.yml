@@ -1,0 +1,114 @@
+name: Fortaleza Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"  # Every Monday 6 AM UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Air-Gapped-Rag-System-main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Air-Gapped-Rag-System-main
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependency scanners
+        run: pip install pip-audit safety
+
+      - name: Scan with pip-audit
+        run: pip-audit -r app/requirements.txt --desc on
+
+      - name: Scan with safety
+        run: safety check -r app/requirements.txt || true
+
+  container-scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Air-Gapped-Rag-System-main
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build app image
+        run: docker build -t fortaleza-app:scan ./app
+
+      - name: Scan app image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "fortaleza-app:scan"
+          format: "sarif"
+          output: "trivy-app.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+
+      - name: Upload Trivy results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-app.sarif"
+
+  license-scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Air-Gapped-Rag-System-main
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r app/requirements.txt
+          pip install pip-licenses
+
+      - name: Check for GPL/AGPL licenses
+        run: |
+          pip-licenses --format=json | python -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          forbidden = ['GPL', 'AGPL', 'LGPL', 'GNU']
+          violations = []
+          for pkg in data:
+              lic = pkg.get('License', '')
+              if any(f in lic.upper() for f in forbidden):
+                  if 'PSF' not in lic.upper() and 'Python' not in lic:
+                      violations.append(f\"{pkg['Name']} ({lic})\")
+          if violations:
+              print('License violations detected:')
+              for v in violations:
+                  print(f'  - {v}')
+              sys.exit(1)
+          print('All', len(data), 'packages have compliant licenses.')
+          "
