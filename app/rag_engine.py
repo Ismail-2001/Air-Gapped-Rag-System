@@ -134,7 +134,7 @@ RESPUESTA DEL ANALISTA:"""
         from audit import audit_logger, AuditEvent, AuditEventType
 
         try:
-            docs = self.retriever.get_relevant_documents(question)
+            docs = self.retriever.invoke(question)
             result = self.rag_chain.invoke(question)
 
             audit_logger.log(AuditEvent(
