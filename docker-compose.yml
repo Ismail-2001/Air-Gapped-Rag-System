@@ -31,13 +31,29 @@ services:
       start_period: 45s
     restart: unless-stopped
 
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: fortaleza-nginx
+    ports:
+      - "443:443"
+    volumes:
+      - nginx_ssl:/etc/nginx/ssl
+    environment:
+      - CERT_DAYS=${CERT_DAYS:-3650}
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - airgap-net
+    restart: unless-stopped
+
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
     container_name: fortaleza-app
-    ports:
-      - "8501:8501"
     volumes:
       - ./documents:/app/documents
       - ./chroma_data:/app/chroma_data
@@ -67,3 +83,6 @@ networks:
   airgap-net:
     driver: bridge
     internal: true
+
+volumes:
+  nginx_ssl:
