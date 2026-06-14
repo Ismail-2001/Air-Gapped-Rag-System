@@ -7,9 +7,10 @@ font = "monospace"
 
 [server]
 maxUploadSize = 200
-enableCORS = false
-enableXsrfProtection = false
+enableCORS = true
+enableXsrfProtection = true
 headless = true
+cookieSecret = "@FORTALEZA_COOKIE_SECRET@"
 
 [browser]
 gatherUsageStats = false

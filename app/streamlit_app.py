@@ -11,6 +11,7 @@ from config import config
 import locales
 from pdf_processor import process_source
 from rag_engine import RAGEngine
+from auth import auth_manager, Role, ClearanceLevel
 
 # Configuración de página con estética terminal
 st.set_page_config(
@@ -19,6 +20,55 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ── Estado de Sesión (Autenticación) ──
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+    st.session_state.token = None
+    st.session_state.user = None
+
+# ── Pantalla de Login ──
+if not st.session_state.authenticated:
+    st.markdown("""
+    <style>
+        .login-container { max-width: 400px; margin: 100px auto; padding: 2rem; border: 1px solid #00FF00; background-color: #050505; }
+        .login-title { color: #00FF00; font-family: "Courier New", monospace; text-align: center; }
+        .login-subtitle { color: #00AA00; font-family: "Courier New", monospace; text-align: center; font-size: 0.9em; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("<div class='login-container'>", unsafe_allow_html=True)
+        st.markdown("<h2 class='login-title'>▸ ACCESO AL SISTEMA</h2>", unsafe_allow_html=True)
+        st.markdown("<p class='login-subtitle'>Sistema de Inteligencia Documental en Entorno Aislado</p>", unsafe_allow_html=True)
+        st.markdown("---")
+
+        username = st.text_input("USUARIO", placeholder="Ingrese su nombre de usuario")
+        password = st.text_input("CONTRASEÑA", type="password", placeholder="Ingrese su contraseña")
+
+        if st.button("INGRESAR", use_container_width=True):
+            if not username or not password:
+                st.error("ERROR: Debe ingresar usuario y contraseña.")
+            else:
+                import socket
+                client_ip = socket.gethostbyname(socket.gethostname()) if hasattr(socket, 'gethostname') else "unknown"
+                token = auth_manager.authenticate(username, password, ip=client_ip)
+                if token:
+                    st.session_state.authenticated = True
+                    st.session_state.token = token
+                    st.session_state.user = auth_manager.get_user(username)
+                    st.rerun()
+                else:
+                    st.error("ERROR: Credenciales invalidas.")
+                    time.sleep(0.5)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.stop()
+
+# ── Obtener usuario actual ──
+current_user = st.session_state.user
 
 # Estilos CSS personalizados para estética militar táctica
 st.markdown("""
@@ -135,6 +185,16 @@ if 'ingested_docs' not in st.session_state:
     st.session_state.ingested_docs = []
 
 # ── Barra Lateral ──
+st.sidebar.markdown(f"### USUARIO: {current_user.display_name if current_user else 'DESCONOCIDO'}")
+st.sidebar.text(f"ROL: {current_user.role.value.upper() if current_user else '—'}")
+st.sidebar.text(f"NIVEL: {current_user.clearance.name if current_user else '—'}")
+if st.sidebar.button("CERRAR SESION", use_container_width=True):
+    st.session_state.authenticated = False
+    st.session_state.token = None
+    st.session_state.user = None
+    st.rerun()
+st.sidebar.divider()
+
 st.sidebar.markdown(f"### {locales.SIDEBAR_HEADER}")
 uploaded_files = st.sidebar.file_uploader(
     locales.SIDEBAR_UPLOAD,
@@ -148,7 +208,12 @@ if st.sidebar.button(locales.BTN_INGEST) and uploaded_files:
         with st.spinner(f"{locales.PROCESSING_INGEST}: {uploaded_file.name}"):
             try:
                 result = process_source(uploaded_file)
-                st.session_state.rag_engine.ingest_documents(result["chunks"])
+                st.session_state.rag_engine.ingest_documents(
+                    result["chunks"],
+                    user=current_user.username if current_user else "anonymous",
+                    session_id=st.session_state.token or "unknown",
+                    ip="container"
+                )
                 st.session_state.ingested_docs.append({
                     "name": uploaded_file.name,
                     "pages": result["page_count"],
@@ -163,7 +228,11 @@ st.sidebar.divider()
 
 if st.sidebar.button(locales.BTN_CLEAR):
     if st.sidebar.checkbox(locales.CLEAR_CONFIRM):
-        st.session_state.rag_engine.purge_database()
+        st.session_state.rag_engine.purge_database(
+            user=current_user.username if current_user else "anonymous",
+            session_id=st.session_state.token or "unknown",
+            ip="container"
+        )
         st.session_state.ingested_docs = []
         st.session_state.chat_history = []
         st.rerun()
@@ -205,7 +274,12 @@ if execute_btn:
         start_time = time.time()
         with st.spinner(locales.PROCESSING_QUERY):
             try:
-                response = st.session_state.rag_engine.query(query)
+                response = st.session_state.rag_engine.query(
+                    query,
+                    user=current_user.username if current_user else "anonymous",
+                    session_id=st.session_state.token or "unknown",
+                    ip="container"
+                )
                 end_time = time.time()
                 
                 # Almacenar en historial

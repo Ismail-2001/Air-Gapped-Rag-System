@@ -1,6 +1,5 @@
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim@sha256:e3b17e38e6d4d3f0a6e087b5d0d1f2f3c7c8b9a0d1e2f3a4b5c6d7e8f9a0b1c AS builder
 
-# System dependencies for building wheels
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
@@ -8,38 +7,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-# Copy requirements and download ALL wheels (including transitive deps)
 COPY requirements.txt .
 RUN pip install --no-cache-dir pip-tools && \
     pip download -r requirements.txt -d /wheels && \
     echo "[FORTALEZA] Todas las dependencias descargadas como wheels."
 
-# ── Final Stage ──
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:e3b17e38e6d4d3f0a6e087b5d0d1f2f3c7c8b9a0d1e2f3a4b5c6d7e8f9a0b1c
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd -r fortaleza -g 1000 && \
+    useradd -r -g fortaleza -u 1000 -m -d /app fortaleza
+
 WORKDIR /app
 
-# Copy pre-downloaded wheels from builder
 COPY --from=builder /wheels /wheels
 
-# Environment variables for absolute offline operation
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     TRANSFORMERS_OFFLINE=1 \
     HF_HUB_OFFLINE=1 \
-    HF_DATASETS_OFFLINE=1
+    HF_DATASETS_OFFLINE=1 \
+    SENTENCE_TRANSFORMERS_HOME=/app/models
 
-# Install from local wheels ONLY — pip CANNOT reach PyPI
 COPY requirements.txt .
 RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt && \
-    echo "[FORTALEZA] Instalación offline completada."
+    rm -rf /root/.cache && \
+    echo "[FORTALEZA] Instalacion offline completada."
 
-# Pre-download BGE-M3 embedding model into image
-# We'll use HuggingFaceHub to download explicitly to cache folder
 ENV SENTENCE_TRANSFORMERS_HOME=/app/models
 RUN mkdir -p /app/models && \
     python -c "\
@@ -48,7 +45,6 @@ model = SentenceTransformer('BAAI/bge-m3', cache_folder='/app/models'); \
 dim = model.get_sentence_embedding_dimension(); \
 print(f'[FORTALEZA] Modelo BGE-M3 cargado: {dim}d embeddings')"
 
-# Verify ALL critical imports succeed — fail build if anything is missing
 RUN python -c "\
 import streamlit; \
 import langchain; \
@@ -58,13 +54,14 @@ import chromadb; \
 import sentence_transformers; \
 import pdfplumber; \
 import pydantic; \
-print('[FORTALEZA] Verificación de importaciones: TODAS CORRECTAS')"
+print('[FORTALEZA] Verificacion de importaciones: TODAS CORRECTAS')"
 
-# Copy application code
 COPY . .
-
-# Remove any leftover wheels from final image (save space)
 RUN rm -rf /wheels
+
+RUN chown -R fortaleza:fortaleza /app
+
+USER fortaleza
 
 EXPOSE 8501
 

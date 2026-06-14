@@ -20,3 +20,7 @@ wheels/*.whl
 !wheels/.gitkeep
 fortaleza-ollama.tar.gz
 fortaleza-app.tar.gz
+audit_logs/
+.secrets/
+.secrets.baseline
+offline_package_*/

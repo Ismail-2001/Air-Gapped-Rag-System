@@ -41,6 +41,7 @@ services:
     volumes:
       - ./documents:/app/documents
       - ./chroma_data:/app/chroma_data
+      - ./audit_logs:/app/audit_logs
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
       - LLM_MODEL=${LLM_MODEL}
