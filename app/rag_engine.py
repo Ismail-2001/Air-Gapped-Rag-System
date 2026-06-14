@@ -12,9 +12,10 @@ from langchain_ollama import OllamaLLM
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
-from prompt_shield import sanitize_text, build_safe_context
+from prompt_shield import sanitize_text
 from config import config
 from retrieval import HybridRetriever, BM25
+from query_expansion import expand_query, deduplicate_results
 
 logger = logging.getLogger(__name__)
 
@@ -52,26 +53,15 @@ class RAGEngine:
 
         # ── Modern RAG Pipeline (LCEL) ──
 
-        # Función para formatear documentos con delimitadores de seguridad
-        def format_docs(docs):
-            formatted = []
-            for i, doc in enumerate(docs):
-                source = doc.metadata.get("source", "unknown")
-                page = doc.metadata.get("page", "N/A")
-                sanitized, _ = sanitize_text(doc.page_content)
-                formatted.append(
-                    f"[DOC {i+1}] [Source: {source}] [Page: {page}]\n"
-                    f"[CHUNK_START]\n{sanitized}\n[CHUNK_END]"
-                )
-            return "\n\n".join(formatted)
-
         self.retriever = HybridRetriever(
             vectorstore=self.vectorstore,
             bm25=BM25(k1=1.5, b=0.75),
         )
 
+        self.format_docs = self._make_format_docs()
+
         self.rag_chain = (
-            {"context": self.retriever | format_docs, "question": RunnablePassthrough()}
+            {"context": self.retriever | self.format_docs, "question": RunnablePassthrough()}
             | self._build_spanish_prompt()
             | self.llm
             | StrOutputParser()
@@ -103,6 +93,22 @@ RESPUESTA DEL ANALISTA:"""
             template=template,
             input_variables=["context", "question"]
         )
+
+    @staticmethod
+    def _make_format_docs():
+        def format_docs(docs):
+            from prompt_shield import sanitize_text
+            formatted = []
+            for i, doc in enumerate(docs):
+                source = doc.metadata.get("source", "unknown")
+                page = doc.metadata.get("page", "N/A")
+                sanitized, _ = sanitize_text(doc.page_content)
+                formatted.append(
+                    f"[DOC {i+1}] [Source: {source}] [Page: {page}]\n"
+                    f"[CHUNK_START]\n{sanitized}\n[CHUNK_END]"
+                )
+            return "\n\n".join(formatted)
+        return format_docs
 
     def ingest_documents(self, chunks: List[Any], user: str = "anonymous",
                          session_id: str = "unknown", ip: str = "0.0.0.0"):
@@ -143,8 +149,16 @@ RESPUESTA DEL ANALISTA:"""
         from audit import audit_logger, AuditEvent, AuditEventType
 
         try:
-            docs = self.retriever.invoke(question)
-            result = self.rag_chain.invoke(question)
+            expanded_queries = expand_query(question, llm=self.llm)
+            all_docs = []
+            for q in expanded_queries:
+                docs = self.retriever.invoke(q)
+                all_docs.extend(docs)
+
+            deduped = deduplicate_results(all_docs)
+            context = self.format_docs(deduped)
+            prompt = self._build_spanish_prompt().format(context=context, question=question)
+            result = self.llm.invoke(prompt)
 
             audit_logger.log(AuditEvent(
                 event_type=AuditEventType.QUERY_EXECUTED,
@@ -155,6 +169,7 @@ RESPUESTA DEL ANALISTA:"""
                 details={
                     "question_truncated": question[:200],
                     "documents_retrieved": len(docs),
+                    "expanded_queries": len(expanded_queries),
                     "response_length": len(result),
                     "model": config.LLM_MODEL,
                 }
@@ -162,7 +177,7 @@ RESPUESTA DEL ANALISTA:"""
 
             return {
                 "result": result,
-                "source_documents": docs
+                "source_documents": deduped
             }
         except Exception as e:
             audit_logger.log(AuditEvent(
