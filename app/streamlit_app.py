@@ -14,6 +14,7 @@ from pdf_processor import process_source
 from rag_engine import RAGEngine
 from auth import auth_manager, Role, ClearanceLevel
 from input_validator import validate_query
+from rate_limiter import rate_limiter
 
 logger = setup_logging()
 
@@ -280,12 +281,18 @@ if execute_btn:
             st.error(error_msg)
             st.stop()
 
+        username = current_user.username if current_user else "anonymous"
+        allowed, retry_after = rate_limiter.check(username)
+        if not allowed:
+            st.error(f"Limite de consultas excedido. Intente nuevamente en {retry_after} segundos.")
+            st.stop()
+
         start_time = time.time()
         with st.spinner(locales.PROCESSING_QUERY):
             try:
                 response = st.session_state.rag_engine.query(
                     query,
-                    user=current_user.username if current_user else "anonymous",
+                    user=username,
                     session_id=st.session_state.token or "unknown",
                     ip="container"
                 )
