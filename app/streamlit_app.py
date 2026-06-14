@@ -15,6 +15,7 @@ from rag_engine import RAGEngine
 from auth import auth_manager, Role, ClearanceLevel
 from input_validator import validate_query
 from rate_limiter import rate_limiter
+from metrics import start_metrics_server
 
 logger = setup_logging()
 
@@ -180,6 +181,7 @@ if 'rag_engine' not in st.session_state:
     try:
         with st.spinner(locales.PROCESSING_INGEST):
             st.session_state.rag_engine = RAGEngine()
+            start_metrics_server(port=8000)
     except Exception as e:
         st.error(locales.ERR_OLLAMA_UNAVAILABLE)
 

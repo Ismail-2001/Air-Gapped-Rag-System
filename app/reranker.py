@@ -2,6 +2,7 @@ import logging
 from typing import List, Any
 
 from config import config
+from metrics import observe_reranker
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class CrossEncoderReranker:
                 raise
         return self._model
 
+    @observe_reranker
     def rerank(self, query: str, documents: List[Any], top_k: int | None = None) -> List[Any]:
         if not documents:
             return documents

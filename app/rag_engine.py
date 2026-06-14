@@ -17,6 +17,7 @@ from config import config
 from retrieval import HybridRetriever, BM25
 from query_expansion import expand_query, deduplicate_results
 from reranker import CrossEncoderReranker
+from metrics import observe_query, observe_llm, observe_reranker
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,7 @@ RESPUESTA DEL ANALISTA:"""
             ))
             raise
 
+    @observe_query
     def query(self, question: str, user: str = "anonymous",
               session_id: str = "unknown", ip: str = "0.0.0.0") -> Dict[str, Any]:
         """Ejecuta una consulta contra el motor RAG."""
