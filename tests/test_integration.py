@@ -26,36 +26,6 @@ class MockDocument:
         self.metadata = metadata or {}
 
 
-# ── Fixtures ──
-
-@pytest.fixture
-def mock_config():
-    with patch("config.config") as cfg:
-        cfg.EMBEDDING_DEVICE = "cpu"
-        cfg.CHUNK_SIZE = 500
-        cfg.CHUNK_OVERLAP = 100
-        cfg.TOP_K_RESULTS = 4
-        cfg.SIMILARITY_THRESHOLD = 0.0
-        cfg.MAX_TOKENS = 128
-        cfg.TOP_K = 40
-        cfg.TOP_P = 0.9
-        cfg.LLM_MODEL = "llama3"
-        cfg.OLLAMA_BASE_URL = "http://localhost:11434"
-        cfg.EMBEDDING_MODEL = "BAAI/bge-m3"
-        cfg.CHROMA_PERSIST_DIR = "/tmp/test_chroma"
-        cfg.DOCUMENTS_DIR = "/tmp/test_docs"
-        cfg.FORTALEZA_JWT_SECRET = "test-secret"
-        cfg.FORTALEZA_SESSION_TTL = 480
-        cfg.FORTALEZA_AUTH_MODE = "local"
-        cfg.FORTALEZA_ADMIN_PASSWORD = "admin"
-        cfg.FORTALEZA_ENCRYPTION_KEY = ""
-        cfg.FORTALEZA_RATE_LIMIT = 30
-        cfg.SEMANTIC_CHUNKING = False
-        cfg.CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-TinyBERT-L-2-v2"
-        cfg.ENABLE_RERANKER = False
-        yield cfg
-
-
 # ── PDF Processing Integration ──
 
 class TestPDFProcessingPipeline:
